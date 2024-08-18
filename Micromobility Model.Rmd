@@ -1,0 +1,822 @@
+---
+title: "Real Estate "
+author: "First Crown Data Analytics"
+date: '2024-04-14'
+output:
+  html_document: default
+
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Be sure we have the neccesary packages installed/loaded
+```{r install}
+# Load all the required packages
+library(tidyverse)  
+library(plm)        
+library(glmnet)     
+library(gridExtra)  
+library(tidyr)      
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(car)
+```
+# Brief  explaination of the libraries 
+tidyverse: The tidyverse is a collection of R packages that work harmoniously together. It shares common data representations and API design. When you load the tidyverse package, it conveniently installs and loads several core packages in one command. Here’s what you get:
+ggplot2: A powerful system for creating graphics based on the principles of The Grammar of Graphics. It allows you to map variables to aesthetics and specify graphical primitives.
+dplyr: Essential for data manipulation. It provides functions like filter(), mutate(), and summarize() for efficient data wrangling.
+tidyr: Helps tidy up your data by reshaping it into a consistent format. Functions like gather() and spread() are commonly used.
+readr: Simplifies data import from various formats (CSV, Excel, etc.).
+purrr: Enables functional programming, making it easier to work with lists and vectors.
+tibble: A modern reimagining of data frames, offering improved printing and other features.
+stringr: Useful for working with strings.
+forcats: Deals with factors (categorical variables).
+lubridate: Handles date and time data.
+
+plm: The plm package stands for “panel linear models.” It’s designed for analyzing panel data (cross-sectional and time-series data combined). You can estimate fixed effects, random effects, and other panel regression models using this package.
+glmnet: This package implements the elastic net regularization method for fitting generalized linear models. It’s particularly useful for high-dimensional data where you want to select relevant predictors while avoiding overfitting.
+gridExtra: Provides tools for arranging multiple plots on a single page. You can create custom layouts for your visualizations.
+reshape2: Helps reshape data from wide to long format and vice versa. Useful for data tidying and visualization.
+car: The car package contains functions for regression diagnostics, model comparison, and other statistical tasks. It’s especially handy for checking assumptions and assessing model fit.
+
+### Load data
+```{r loading}
+library(readr)
+property_database_final <- read_csv("property_database_final.csv")
+head(property_database_final)
+```
+
+## Getting to know the data
+### Descriptive Statistics
+Descriptive statistics are a useful means of deriving quick information about a collective dataset. one of the useful function i adopted for descriptive statistics is summary() which will produce multiple descriptive statistics as a single output. well this function can also be run for multiple variables or an entire data object.
+
+```{r}
+# Summary for All Date
+summary(property_database_final)
+```
+## KEY INSIGHTS FROM THE DATA SET
+Performing summary statistics is a crucial initial step in data analysis. It lays the foundation for deeper exploration, quality checks, and informed decision-making based on the dataset's key characteristics and distributions. the following are the key insights from the summary statistics.
+
+CATEGORY: This column represents a categorical variable,describing the type or category of properties.
+
+NUMBER_BED: This Represents the number of bedrooms in the properties. It ranges from a minimum of 0 to a maximum of 60, with a median of 2 bedrooms.
+
+NUM_FLOORS: number of floors Indicates the number of floors in the properties. It ranges from a minimum of 0 to a maximum of 255, with a median of 0 floors.having the max values of 255 implies that there might be an outliers in the data.
+
+NUM_BATHRO: This Refers to the number of bathrooms in the properties. It ranges from a minimum of 0 to a maximum of 60, with a median of 1 bathroom.
+
+NUM_RECEPT:It Represents the number of reception rooms in the properties. It ranges from a minimum of 0 to a maximum of 29, with a median of 1 reception room.
+
+NEAREST_ES:It Indicates the distance to the nearest electric scooter (ES) location from the properties,in meters. The values range from 1.29 to 34245.68 meters.
+
+while for NEAREST_BI, the values range from 0.047 to 29144.540 meter this indicate that their some properties that are close as 0.05 and 1.3 meters and as far as 29144 and 34246 away from the Amenities.
+
+BIKE_100_D, BIKE_250_D, BIKE_500_D, BIKE_1000_, BIKE_2500: for BIKE_100_D the mean number of bike on here stood at 10 with a median of 0 and max of 413 but for 
+
+BIKE_250_D, the mean number of bike on here stood at  8 and max of 159 for BIKE_500_D with mean 7, median 3 and max of 63 while for the most longer distance, BIKE_2500 
+
+the mean is at 6, median 5 an max of 19. this show a steady drop in the number of bikes as the distance increases.
+
+the same pattern was also seen with the E-scooters with ESCOOTER_6_D with the max number of E scooters 413 and Escooter_10 having 34.
+
+
+```{r}
+# Get all column names
+colnames(property_database_final)
+```
+### Variable Distribution
+Let start by understanding the Type of properties , bedrooms, Bathrooms, Last Market Year, Receptions we have in the dataset.
+
+```{r}
+# Summary statistics for numerical variables
+summary_df <- property_database_final %>%
+  select(PRICE, NUMBER_BED, NUM_FLOORS, NUM_BATHRO, NUM_RECEPT, BIKE_100, BIKE_250, BIKE_500, BIKE_1000, BIKE_2500,
+         ESCOOTER_1, escooter_2, ESCOOTER_3, ESCOOTER_4, ESCOOTER_5, ESCOOTER_6, ESCOOTER_7, ESCOOTER_8, ESCOOTER_9, ESCOOTE_10)
+
+summary_stats <- summary(summary_df)
+print(summary_stats)
+```
+
+Let's take a look at  the Type of properties , bedrooms, Bathrooms, Last Market Year, Receptions we have in the dataset. here i create separate 
+
+datasets for each variable, filter out values greater than 50 as i consider this as an out-liers and the percentage contribution is very small,
+
+calculate frequencies and percentages rounded to two decimal places, and then plot the frequencies separately for each variable.
+```{r, echo=FALSE}
+# Bar plot for CATEGORY
+ggplot(property_database_final, aes(x = CATEGORY)) +
+  geom_bar(fill = "lightcoral") +
+  labs(x = "Category", y = "Count", title = "Distribution of Property Categories")
+
+```
+From the above chart, it appears that only residential is the category involved in the dataset. this is because the the data consider for the study are mostly urban areas.
+
+
+```{r,echo=FALSE}
+library(dplyr)
+# Recreating separate datasets for each variable
+number_bed_data <- property_database_final %>%
+  filter(NUMBER_BED <= 50) %>%
+  count(NUMBER_BED) %>%
+  mutate(Percentage = round(n / sum(n) * 100, 2))
+number_bed_data
+num_floors_data <- property_database_final %>%
+  filter(NUM_FLOORS <= 50) %>%
+  count(NUM_FLOORS) %>%
+  mutate(Percentage = round(n / sum(n) * 100, 2))
+num_floors_data
+num_bathro_data <- property_database_final %>%
+  filter(NUM_BATHRO <= 50) %>%
+  count(NUM_BATHRO) %>%
+  mutate(Percentage = round(n / sum(n) * 100, 2))
+num_bathro_data
+num_recept_data <- property_database_final %>%
+  filter(NUM_RECEPT <= 50) %>%
+  count(NUM_RECEPT) %>%
+  mutate(Percentage = round(n / sum(n) * 100, 2))
+num_recept_data
+```
+
+From the summary above,the most common configuration is one reception room with (61%), followed by properties with zero receptions (34%) and two receptions (5%).
+Properties with higher numbers of reception rooms (4 or more) are relatively rare in the dataset, comprising less than 1% each.
+
+Understanding the distribution of bathrooms in properties is crucial for homebuyers, renters, and real estate professionals as it directly impacts the property's 
+
+functionality, value, and appeal to potential occupants.in the summary above,the most common configuration is one bathroom accounting for 52.39% of the entire data, 
+
+followed by properties with two bathrooms and zero bathrooms. Properties with higher numbers of bathrooms (4 or more) are relatively rare in the dataset, comprising less 
+than 1% each.
+
+also,the vast majority of properties have zero floors, likely indicating single-story structures or apartments where floors are not counted individually Properties with 
+
+multiple floors (1-4 floors) are present but constitute a smaller proportion of the dataset. while properties with more than four floors are relatively rare, each 
+
+accounting for less than 0.2% of the dataset. as for the number of Beds, One and two-bedroom properties make up a significant portion of the dataset, catering to 
+
+singles, couples, and smaller families. 3 and 4-bedroom properties are also prevalent, meeting the needs of medium-sized families.
+
+Properties with five or more bedrooms are less common but still present, catering to larger families or individuals seeking spacious living arrangements.
+
+```{r, echo=FALSE}
+# Plotting for NUMBER_BED
+ggplot(number_bed_data, aes(x = factor(NUMBER_BED), y = Percentage, fill = factor(NUMBER_BED))) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(x = "Number of Bedrooms", y = "Percentage", title = "Frequency and Percentage of Number of Bedrooms") +
+  theme_minimal()+
+  guides(fill = FALSE)
+
+# Plotting for NUM_FLOORS
+ggplot(num_floors_data, aes(x = factor(NUM_FLOORS), y = Percentage, fill = factor(NUM_FLOORS))) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(x = "Number of Floors", y = "Percentage", title = "Frequency and Percentage of Number of Floors") +
+  theme_minimal()+
+  guides(fill = FALSE)
+
+# Plotting for NUM_BATHRO
+ggplot(num_bathro_data, aes(x = factor(NUM_BATHRO), y = Percentage, fill = factor(NUM_BATHRO))) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(x = "Number of Bathrooms", y = "Percentage", title = "Frequency and Percentage of Number of Bathrooms") +
+  theme_minimal()+
+  guides(fill = "none")
+
+# Plotting for NUM_RECEPT
+ggplot(num_recept_data, aes(x = factor(NUM_RECEPT), y = Percentage, fill = factor(NUM_RECEPT))) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(x = "Number of Reception Rooms", y = "Percentage", title = "Frequency and Percentage of Number of Reception Rooms") +
+  theme_minimal()+
+  guides(fill = FALSE)
+```
+The Above provides insights into the distribution of reception rooms, number of bathrooms, number of floors and number of bedrooms in our dataset.
+it can be seen that Approximately 20% of the properties have only one reception room while the majority of properties (around 60%) feature two reception rooms.however, Very few properties (less than 1%) have three or more reception rooms.
+
+```{r,echo=FALSE}
+# Calculate frequency and percentage for Property_T
+property_t_data <- property_database_final %>%
+  count(PROPERTY_T) %>%
+  mutate(Percentage = round(n / sum(n) * 100, 2))
+property_t_data
+# Calculate frequency and percentage for Listing_ST
+listing_st_data <- property_database_final %>%
+  count(LISTING_ST) %>%
+  mutate(Percentage = round(n / sum(n) * 100, 2))
+listing_st_data
+# Calculate frequency and percentage for Status
+status_data <- property_database_final %>%
+  count(STATUS) %>%
+  mutate(Percentage = round(n / sum(n) * 100, 2))
+status_data
+```
+Key insights from the first summary (PROPERTY TYPE):
+Flats (apartments) constitute the majority (76.08%) of properties in the dataset, reflecting urban living preferences and high-density housing.
+Other common property types include detached houses, terraced houses(6.62%), studios (8.61%), and maisonettes, catering to different housing preferences and lifestyles.
+Less common property types such as barn conversions, lodges, and country houses represent niche markets or unique property styles.
+
+Key insights from the second summary (LISTING STATUS):
+
+Rent Listings has 139,024 listings (77.01%) categorized as "rent," indicating properties available for rent while for Sale Listings, There are 41,499 listings (22.99%) categorized as "sale," indicating properties available for sale.
+
+Key insights from the third summary (STATUS OF THE PROPERTY):
+
+The majority of listings are for properties available to rent, with a significant percentage categorized as "to_rent." a notable percentage of properties categorized as "for_sale," "rent_under_offer," "rented," "sale_under_offer," and "sold," reflecting various stages in the real estate market such as listings, pending offers, rented properties, and completed sales.
+
+
+
+
+```{r r,echo=FALSE}
+# Plotting for Property_T without legend
+property_t_data_sorted <- property_t_data %>%
+  arrange(Percentage)
+
+# Plotting horizontal bar chart with bars in ascending order
+ggplot(property_t_data_sorted, aes(x = reorder(PROPERTY_T, Percentage), y = Percentage, fill = PROPERTY_T)) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(x = "Property Type", y = "Percentage", title = "Frequency and Percentage of Property Types") +
+  theme_minimal() +
+  guides(fill = FALSE) +
+  coord_flip()  
+
+# Plotting for Listing_ST without legend
+ggplot(listing_st_data, aes(x = LISTING_ST, y = Percentage, fill = LISTING_ST)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = paste0(Percentage, "%")), 
+            position = position_stack(vjust = 0.5), 
+            color = "black", size = 3) +
+  labs(x = "Listing Status", y = "Percentage", title = "Frequency and Percentage of Listing Status") +
+  theme_minimal() +
+  guides(fill = FALSE)
+
+
+# Plotting for Status without legend
+status_data_sorted <- status_data %>%
+  arrange(Percentage)
+ggplot(status_data_sorted, aes(x = reorder(STATUS, Percentage), y = Percentage, fill = STATUS)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = paste0(Percentage, "%")), 
+            position = position_stack(vjust = 0.5), 
+            color = "black", size = 3) +  
+  labs(x = "Property Status", y = "Percentage", title = "Frequency and Percentage of Property Status") +
+  theme_minimal() +
+  guides(fill = FALSE) +
+  coord_flip() 
+
+```
+```{r echo=FALSE, fig.height=8, fig.width=8}
+# Group by Property_T and calculate frequencies and percentages
+grouped_data <- property_database_final %>%
+  group_by(PROPERTY_T, NUMBER_BED, NUM_FLOORS, NUM_BATHRO, NUM_RECEPT) %>%
+  summarise(
+    Count = n(),
+    Percentage = round((Count / n()) * 100, 2)
+  ) %>%
+  ungroup()
+
+# Filter out values greater than 50 in each group
+filtered_data <- grouped_data %>%
+  filter(NUMBER_BED <= 50, NUM_FLOORS <= 50, NUM_BATHRO <= 50, NUM_RECEPT <= 50)
+
+# Plotting for NUMBER_BED
+ggplot(filtered_data, aes(x = factor(NUMBER_BED), y = Percentage)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "red3") +
+  facet_wrap(~ PROPERTY_T, scales = "free_x") +
+  labs(x = "Number of Bedrooms", y = "Percentage", title = "Distribution of Bedrooms by Property Type") +
+  theme_minimal()
+
+# Plotting for NUM_FLOORS
+ggplot(filtered_data, aes(x = factor(NUM_FLOORS), y = Percentage)) +
+  geom_bar(stat = "identity", fill = "lightgreen", color = "lightgreen") +
+  facet_wrap(~ PROPERTY_T, scales = "free_x") +
+  labs(x = "Number of Floors", y = "Percentage", title = "Distribution of Floors by Property Type") +
+  theme_minimal()
+
+# Plotting for NUM_BATHRO
+ggplot(filtered_data, aes(x = factor(NUM_BATHRO), y = Percentage)) +
+  geom_bar(stat = "identity", fill = "lightcoral", color = "blue1") +
+  facet_wrap(~ PROPERTY_T, scales = "free_x") +
+  labs(x = "Number of Bathrooms", y = "Percentage", title = "Distribution of Bathrooms by Property Type") +
+  theme_minimal()
+
+# Plotting for NUM_RECEPT
+ggplot(filtered_data, aes(x = factor(NUM_RECEPT), y = Percentage)) +
+  geom_bar(stat = "identity", fill = "lightblue", color = "black") +
+  facet_wrap(~ PROPERTY_T, scales = "free_x") +
+  labs(x = "Number of Reception Rooms", y = "Percentage", title = "Distribution of Reception Rooms by Property Type") +
+  theme_minimal()
+
+
+```
+ 
+ 
+ Let explore relationships between variables using bivariate analysis techniques like scatter plots for numerical variables and box plots for categorical variables against the PRICE variabl which is our main dependent variable
+```{r,echo=FALSE}
+# Scatter plot for NUMBER_BED against PRICE without LOG
+ggplot(property_database_final, aes(x = NUMBER_BED, y = PRICE)) +
+  geom_point() +
+  labs(x = "Number of Bedrooms", y = "Price", title = "Scatter Plot of Number of Bedrooms vs Price")
+
+# Scatter plot for NUM_FLOORS against PRICE
+ggplot(property_database_final, aes(x = NUM_FLOORS, y = PRICE)) +
+  geom_point() +
+  labs(x = "Number of Floors", y = "Price", title = "Scatter Plot of Number of Floors vs Price")
+
+# Scatter plot for NUM_BATHRO against PRICE
+ggplot(property_database_final, aes(x = NUM_BATHRO, y = PRICE)) +
+  geom_point() +
+  labs(x = "Number of Bathrooms", y = "Price", title = "Scatter Plot of Number of Bathrooms vs Price")
+
+# Scatter plot for NUM_RECEPT against PRICE
+ggplot(property_database_final, aes(x = NUM_RECEPT, y = PRICE)) +
+  geom_point() +
+  labs(x = "Number of Reception Rooms", y = "Price", title = "Scatter Plot of Number of Reception Rooms vs Price")
+
+
+```
+often time In statistical analysis and modeling, it is deemed necessary to transform variables to meet the assumptions of the chosen analytical 
+
+methods or to improve interpretability. given the scatter plots above for the price and some selected variables there is focuses on the need for and 
+the process of log transformation specifically applied to the Price variable in the dataset. it is worthy to note that the decision to transform the 
+Price variable stems from the observation that the Price values are exceptionally large see the scatter plot above, making it challenging to 
+
+visualize relationships with other variables using scatter plots. this transformation helps scale down large values, reducing the magnitude of 
+
+differences between data points. This scaling is crucial for visualizations like scatter plots, where extreme values can skew the plot and obscure 
+
+patterns.below are the crucial steps involved in Log Transformation.
+
+Load the Dataset: I Started  by loading the dataset containing the Price variable and other relevant variables for analysis into R.
+
+Check Data Distribution:I  Used summary statistics and histograms to assess the distribution of the Price variable. Identify skewness or large value ranges that warrant transformation.
+
+Log Transformation: I then Use the logarithm transformation function in R to transform the Price variable. In R, the log() function can be applied directly to the Price column or as part of a data transformation pipeline. but since i neded the log transofrm the price alone, i did a price colum transformation.
+
+Visualization: After log transformation,I then created scatter plots as seen below with the transformed Price variable and other selected variables of interest in oder to compare the plots with the original data to observe changes in relationships and data spread.
+
+
+
+
+```{r,echo=FALSE}
+# Adding a small constant to avoid logarithm of 0
+property_database_final$PRICE_log <- log(property_database_final$PRICE + 1)
+# Scatter plot for NUMBER_BED against log-transformed PRICE
+ggplot(property_database_final, aes(x = NUMBER_BED, y = PRICE_log)) +
+  geom_point(alpha = 0.5) +  
+  labs(x = "Number of Bedrooms", y = "Log-Transformed Price") +
+  theme_minimal()
+
+# Scatter plot for NUM_FLOORS against log-transformed PRICE
+ggplot(property_database_final, aes(x = NUM_FLOORS, y = PRICE_log)) +
+  geom_point(alpha = 0.5) +
+  labs(x = "Number of Floors", y = "Log-Transformed Price") +
+  theme_minimal()
+
+
+# Scatter plot for NUM_BATHRO against log-transformed PRICE
+ggplot(property_database_final, aes(x = NUM_BATHRO, y = PRICE_log)) +
+  geom_point(alpha = 0.5) +
+  labs(x = "Number of Floors", y = "Log-Transformed Price") +
+  theme_minimal()
+
+# Scatter plot for NUM_RECEPT against log-transformed PRICE
+ggplot(property_database_final, aes(x = NUM_RECEPT, y = PRICE_log)) +
+  geom_point(alpha = 0.5) +
+  labs(x = "Number of Floors", y = "Log-Transformed Price") +
+  theme_minimal()
+```
+# Explaining the scatter plot above
+
+the first scatter plot illustrates the relationship between the log-transformed price of properties and the number of bedrooms they have. It shows how prices vary across 
+different property sizes.The black data points are scattered across the graph.Most data points cluster between approximately 0 and 20 bedrooms suggesting that most properties listed have a varying log-transformed price within this range
+
+Also number the distribution of number of floor are displayed on the scatter plot. majority of the house are cluster between 0 and 10 
+
+
+```{r echo=FALSE}
+# Box plot for Property_T against log-transformed PRICE 
+ggplot(property_database_final, aes(x = PROPERTY_T, y = PRICE_log, fill = PROPERTY_T)) +
+  geom_boxplot() +
+  labs(x = "Property Type", y = "Log-Transformed Price") +
+  theme_minimal() +
+  scale_fill_discrete(name = "Property Type") +
+  coord_flip() +  
+  theme(legend.position = "none")  
+
+
+```
+the figure above shows the box plot of the price across the property type. although majority of the properties indicates that there is outliers this is due to the fact that the data considered for this study includes rent and sales properties 
+
+```{r}
+# Box plot for LISTING_ST against log-transformed PRICE 
+ggplot(property_database_final, aes(x = LISTING_ST, y = PRICE_log, fill = LISTING_ST)) +
+  geom_boxplot() +
+  labs(x = "Listing Status", y = "Log-Transformed Price") +
+  theme_minimal() +
+  scale_fill_discrete(name = "Listing Status") +
+  theme(legend.position = "none") 
+
+# Box plot for STATUS against log-transformed PRICE
+ggplot(property_database_final, aes(x = factor(STATUS), y = PRICE_log, fill = STATUS)) +
+  geom_boxplot() +
+ labs(x = "Listing Status", y = "Log-Transformed Price") +
+   theme_minimal() +
+  scale_fill_discrete(name = "Status") +
+  theme(legend.position = "none") 
+```
+```{r echo=FALSE}
+
+# Scatter plot for BIKE_100 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = BIKE_100, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +  
+  labs(x = "Bike 100", y = "Log Price", title = "Scatter Plot of Bike 100 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +  # Customize legend title
+  scale_size_discrete(name = "Listing Status") +  # Customize legend title
+  theme_minimal()
+
+# Scatter plot for BIKE_250 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = BIKE_250, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "Bike 250", y = "Log Price", title = "Scatter Plot of Bike 250 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+
+
+# Scatter plot for BIKE_500 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = BIKE_500, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "Bike 500", y = "Log Price", title = "Scatter Plot of Bike 500 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+
+
+# Scatter plot for BIKE_1000 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = BIKE_1000, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "Bike 1000", y = "Log Price", title = "Scatter Plot of Bike 1000 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+
+# Scatter plot for BIKE_2500 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = BIKE_2500, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "Bike 2500", y = "Log Price", title = "Scatter Plot of Bike 2500 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+
+
+```
+Interpretation:
+The graph displays the relationship between two variables “Bike 100”,“Bike 250”,“Bike 500”,“Bike 1000”,“Bike 2500” and “Log Price.” this suggests that as the value of each bike at different distances increases, the log price remains relatively constant for both rental and sale listings.
+Also, the distinct clusters of data points indicate different pricing behaviors for rentals and sales.
+
+
+
+```{r}
+
+library(dplyr)
+
+# Calculate the sum of PRICE against LISTING_ST
+sum_price_listing <- property_database_final %>%
+  group_by(LISTING_ST) %>%
+  summarise(Sum_Price = sum(PRICE, na.rm = TRUE))
+
+# View the resulting data
+print(sum_price_listing)
+
+# Group by LISTING_ST and calculate mean PRICE
+mean_price_listing <- property_database_final %>%
+  group_by(LISTING_ST) %>%
+  summarise(Mean_Price = mean(PRICE, na.rm = TRUE))
+mean_price_listing
+```
+
+```{r echo=FALSE}
+
+# Scatter plot for Escooter_1 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = ESCOOTER_1, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +  
+  labs(x = "ESCOOTER_1", y = "Log Price", title = "Scatter Plot of Escooter_1 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +  # Customize legend title
+  scale_size_discrete(name = "Listing Status") +  # Customize legend title
+  theme_minimal()
+
+# Scatter plot for Escooter_2 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = escooter_2, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "ESCOOTER_2", y = "Log Price", title = "Scatter Plot of escooter_2 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+
+
+# Scatter plot for Escooter_3 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = ESCOOTER_3, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "ESCOOTER_3", y = "Log Price", title = "Scatter Plot of Escooter_3 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+
+
+# Scatter plot for ESCOOTER_4 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = ESCOOTER_4, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "ESCOOTER_4", y = "Log Price", title = "Scatter Plot of ESCOOTER_4 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+
+# Scatter plot for ESCOOTER_5 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = ESCOOTER_5, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "ESCOOTER_5", y = "Log Price", title = "Scatter Plot of ESCOOTER_5 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+# Scatter plot for Escooter_ against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = ESCOOTER_6, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +  
+  labs(x = "ESCOOTER_6", y = "Log Price", title = "Scatter Plot of Escooter_6 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +  # Customize legend title
+  scale_size_discrete(name = "Listing Status") +  # Customize legend title
+  theme_minimal()
+
+# Scatter plot for Escooter_7 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = escooter_2, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "ESCOOTER_7", y = "Log Price", title = "Scatter Plot of escooter_7 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+
+
+# Scatter plot for Escooter_3 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = ESCOOTER_3, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "ESCOOTER_3", y = "Log Price", title = "Scatter Plot of Escooter_3 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+
+
+# Scatter plot for ESCOOTER_8 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = ESCOOTER_4, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "ESCOOTER_8", y = "Log Price", title = "Scatter Plot of ESCOOTER_8 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+
+# Scatter plot for ESCOOTER_10 against PRICE with aesthetics and LISTING_ST
+ggplot(property_database_final, aes(x = ESCOOTE_10, y = PRICE_log, color = LISTING_ST, size = LISTING_ST)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "ESCOOTE_10", y = "Log Price", title = "Scatter Plot of ESCOOTER_10 vs Log Price") +
+  scale_color_discrete(name = "Listing Status") +
+  scale_size_discrete(name = "Listing Status") +
+  theme_minimal()
+
+```
+Interpretation:
+The graph displays the relationship between two variables Escooter_1 to E scooter_10 and “Log Price.” this suggests that as the value of each E-scooters at different distances increases, the log price remains relatively constant for both rental and sale listings.
+Also, the distinct clusters of data points indicate different pricing behaviors for rentals and sales
+
+
+# creates correlation matrix
+
+```{r echo=FALSE, fig.height=8, fig.width=10}
+
+# Compute the correlation matrix
+correlation_matrix <- cor(summary_df)
+correlation_matrix
+# Reshape the correlation matrix for plotting
+correlation_data <- melt(correlation_matrix)
+
+# Plotting the correlation heatmap using ggplot2
+heatmap_plot <- ggplot(correlation_data, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient(low = "grey", high = "firebrick") +  # Color scale from blue to red
+  labs(title = "Correlation Heatmap") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        panel.grid.major = element_line(color = "gray", size = 0.5),  # Add gridlines
+        panel.grid.minor = element_blank()) +  # Remove minor gridlines
+  geom_text(aes(label = round(value, 2)), color = "black", size = 3)  # Display correlation values
+
+# Display the heatmap plot
+print(heatmap_plot)
+
+```
+#  summary interpretation of the correlation matrix
+Positive Correlations:
+
+PRICE and NUMBER_BED (0.243): There is a moderate positive correlation between the property price and the number of bedrooms. Properties with more bedrooms tend to have higher prices, which is expected in real estate.
+
+PRICE and NUM_BATHRO (0.163): There is a positive correlation between property price and the number of bathrooms. Properties with more bathrooms tend to have slightly higher prices.
+
+PRICE and NUM_RECEPT (0.151): There is a positive correlation between property price and the number of reception rooms. Properties with more reception rooms may have slightly higher prices.
+
+Negative Correlation:
+There are no significant negative correlations between price and other variables in the provided subset of the correlation matrix.
+
+Correlations with Transportation Facilities:
+
+BIKE_100, BIKE_250, BIKE_500, BIKE_1000, BIKE_2500: These variables show positive correlations with each other, indicating that the availability of bicycles within 
+different distance ranges tends to be correlated. However, these variables show very weak correlations with property price.
+
+ESCOOTER_1 to ESCOOTE_10: Similar to bicycles, electric scooter availability within different distance ranges shows positive correlations with each other but weak correlations with property price.
+
+The strongest positive correlation with property price within this subset is with the number of bedrooms, followed by the number of bathrooms and reception rooms.
+Transportation facilities such as bicycles and electric scooters show weak correlations with property prices in this analysis, suggesting that these amenities may not strongly influence property prices in this context.
+
+## Predicting Home Prices
+### Hedonic Regressions 
+```{r echo=FALSE}
+# Check for missing values in relevant columns
+missing_values <- colSums(is.na(property_database_final[, c("PRICE", "BIKE_100", "BIKE_250", "BIKE_500", "BIKE_1000", "ESCOOTER_1", "escooter_2", "ESCOOTER_5", "ESCOOTER_3", "ESCOOTER_4")]))
+missing_values
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=8}
+# Load necessary libraries (if not already loaded)
+# Create a box plot with log scale for price and color by LISTING_ST category
+ggplot(property_database_final, aes(x = LISTING_ST, y = PRICE)) +
+  geom_boxplot(fill = "#4CAF50", color = "#388E3C") +  # Custom colors for fill and border
+  scale_y_log10() +  # Log scale for the y-axis (price)
+  labs(x = "Listing Status", y = "Log Price", title = "Boxplot of Price by Listing Status") +
+  theme_minimal() +
+  coord_flip()
+
+
+
+```
+The box plot shows the distribution of the log Price for the categories of listing status.i can be noted from the plot that though the transformation gave a better spread of the price in each categories of the listing status with each exhibiting some amount of outliers.
+
+```{r echo=FALSE}
+# Create a histogram with log scale for price and custom color
+hist(log(property_database_final$PRICE), col = "#2196F3", main = "Histogram of Log Price", xlab = "Log Price", ylab = "Frequency")
+
+# Add labels for clarity
+title(main = "Histogram of Log Price", xlab = "Log Price", ylab = "Frequency")
+```
+The histogram shows the distribution of the price after log transformation. it is worthy to note that the price distribution that was highly skewed with the original price is seen to have have a more distributed face given it a pattern less skewd than the original variable.
+
+```{r echo=FALSE}
+# Select relevant columns for analysis
+selected_columns <- c("PRICE_log","NUMBER_BED", "NUM_FLOORS", "NUM_BATHRO", "NUM_RECEPT", "BIKE_100", "BIKE_250", "BIKE_500", "BIKE_1000", "BIKE_2500","ESCOOTER_1", "escooter_2", "ESCOOTER_5", "ESCOOTER_3", "ESCOOTER_4","ESCOOTER_6", "ESCOOTER_7", "ESCOOTER_8", "ESCOOTER_9", "ESCOOTE_10" )
+
+# Subset the data with selected columns
+selected_data <- property_database_final[, selected_columns]
+
+# Check for missing values in the selected data
+missing_values <- colSums(is.na(selected_data))
+print(missing_values)
+
+# Drop rows with missing values (if any)
+selected_data <- na.omit(selected_data)
+
+# Check the structure of the selected data
+str(selected_data)
+
+# Split the data into training and testing sets (e.g., 70% training, 30% testing)
+set.seed(123)  # for reproducibility
+train_indices <- sample(nrow(selected_data), 0.7 * nrow(selected_data))
+train_data <- selected_data[train_indices, ]
+test_data <- selected_data[-train_indices, ]
+
+# Build a multiple linear regression model
+model <- lm(PRICE_log ~ ., data = train_data)
+
+# Summary of the model
+sm = summary(model)
+sm
+mean(sm$residuals^2)
+
+
+
+```
+## Multi Collinearities 
+we can see there is Multi collinearities between some of our variable just as explained by the correlation matrix. it is expected we drop those variable that are col linear to others already contained in the model.due to this,
+the following will be dropped from the model
+ESCOOTER_6  
+ESCOOTER_7          
+ESCOOTER_8      
+ESCOOTER_9   
+ESCOOTE_10.
+Also very important to note that, while will use only the variables of interest alone, the R-squared:0.09265,	Adjusted R-squared:0.09255 These values suggest that the independent variables in the model collectively explain about 9.26% of the variance in the dependent variable.
+which is very small but Considering these results,i try to Explore adding additional relevant variables to the model that could improve its explanatory power.
+```{r echo=FALSE}
+# Select relevant columns for analysis
+selected_columns <- c("PRICE_log","PROPERTY_T","LISTING_ST","NEAREST_ES","NEAREST_BI","NUMBER_BED", "NUM_FLOORS", "NUM_BATHRO", "NUM_RECEPT", "BIKE_100", "BIKE_250", "BIKE_500", "BIKE_1000", "BIKE_2500","ESCOOTER_1", "escooter_2", "ESCOOTER_5", "ESCOOTER_3", "ESCOOTER_4")
+# Subset the data with selected columns
+selected_data <- property_database_final[, selected_columns]
+
+# Check for missing values in the selected data
+missing_values <- colSums(is.na(selected_data))
+print(missing_values)
+
+# Drop rows with missing values (if any)
+selected_data <- na.omit(selected_data)
+# Drop rows with missing values (if any)
+selected_data <- na.omit(selected_data)
+# Check the structure of the selected data
+str(selected_data)
+
+# Split the data into training and testing sets (e.g., 70% training, 30% testing)
+set.seed(123)  # for reproducibility
+train_indices <- sample(nrow(selected_data), 0.7 * nrow(selected_data))
+train_data <- selected_data[train_indices, ]
+test_data <- selected_data[-train_indices, ]
+
+# Build a multiple linear regression model
+model <- lm(PRICE_log ~ ., data = train_data)
+
+# Summary of the model
+summary(model)
+# Make predictions on the test data
+predictions <- predict(model, newdata = test_data)
+
+```
+Each PROPERTY type variable represents a different type of property (e.g., bungalow, cottage, detached house, flat, etc.).
+The "Estimate" column represents the coefficient estimate for each property type compared to a reference category.
+PROPERTY_TBungalow has a coefficient estimate of -0.06616. This means that, on average, bungalows have a slightly lower predicted value for the dependent variable compared to the reference category which is statistically significant if the p-value is less than 0.05.
+
+The coefficient estimate of 7.160 indicates that properties listed for sale have, on average, a much higher predicted value for the dependent variable price compared to other listing statuses
+
+The negative coefficient estimates (-2.983e-05 for NEAREST_ES and -8.192e-06 for NEAREST_BI) indicate that as the distance to these amenities increases, the predicted value for the dependent variable price decreases, although the effect is quite small due to the magnitude of the coefficients.
+
+for variables BIKE_100, BIKE_250, BIKE_500, BIKE_1000, BIKE_2500
+   These variables represent the availability or density of bicycles within specific distance ranges from the properties (within 100 meters, 250 meters, etc.).
+   The coefficients represent the estimated change in the predicted value of the dependent variable ( property price) for a one-unit increase in each variable while holding other variables constant.
+   - BIKE_100:  The coefficient estimate of 0.00618 indicates that, on average, a one-unit increase in the availability/density of bicycles within 100 meters is associated with a 0.00618 unit increase in the predicted property price. However, this effect is not statistically significant at the 0.05 alpha level (p-value = 0.17917).
+  while BIKE_250, BIKE_500, BIKE_1000, BIKE_2500, all These variables show stronger and statistically significant effects on property price.moreso, BIKE_250 has a negative coefficient estimate (-0.00513), indicating that a one-unit increase in the availability/density of bicycles within 250 meters is associated with a decrease in the predicted property price by 0.00513 units.
+
+ESCOOTER_1 to ESCOOTER_5
+   - These variables represent the availability or density of electric scooters within specific distance ranges from the properties.
+  ESCOOTER_1: The coefficient estimate of 0.04542 indicates that, on average, a one-unit increase in the availability/density of electric scooters within the specified range is associated with a 0.04542 unit increase in the predicted property price. This effect is statistically significant (p-value < 0.05), suggesting a meaningful impact on property prices.
+for escooter_2 to ESCOOTER_5, Similarly, these variables show varying impacts on property prices. For instance, a one-unit increase in escooter_2 is associated with a decrease in the predicted property price by -0.01051 units, as indicated by its negative coefficient estimate.
+
+In summary, while the availability or density of bicycles within closer ranges (BIKE_100, BIKE_250) does not show significant impacts on property prices in this model, electric scooters within certain distances (ESCOOTER_1 to ESCOOTER_4) demonstrate statistically significant effects. These findings suggest that electric scooters have a more pronounced influence on property prices compared to bicycles in this context.
+
+```{r echo=FALSE}
+# Evaluate model performance metrics
+
+# Calculate R-squared
+rsquared <- function(predicted, actual) {
+  1 - sum((actual - predicted)^2) / sum((actual - mean(actual))^2)
+}
+
+# Calculate RMSE
+rmse <- function(predicted, actual) {
+  sqrt(mean((predicted - actual)^2))
+}
+
+# Calculate MAE
+mae <- function(predicted, actual) {
+  mean(abs(predicted - actual))
+}
+
+# Extract actual prices from the test data
+actual_prices <- test_data$PRICE_log
+
+# Calculate predicted prices using the model
+predicted_prices <- predict(model, newdata = test_data)
+
+# Calculate R-squared
+r_squared <- rsquared(predicted_prices, actual_prices)
+cat("R-squared:", r_squared, "\n")
+
+# Calculate RMSE
+root_mean_squared_error <- rmse(predicted_prices, actual_prices)
+cat("Root Mean Squared Error (RMSE):", root_mean_squared_error, "\n")
+
+# Calculate MAE
+mean_absolute_error <- mae(predicted_prices, actual_prices)
+cat("Mean Absolute Error (MAE):", mean_absolute_error, "\n")
+
+```
+# Result Interpretation 
+
+This study delves into the nuanced relationship between various property characteristics, listing status, proximity to amenities, and micromobility infrastructure on urban property values. the present study sets out to investigate the Modelling accuracy of HPM in property valuation.we analyze a dataset encompassing diverse property types and features in Inner London to uncover significant patterns and provide actionable insights for urban development policies. Our findings highlight the importance of micromobility infrastructure planning, property size and features, amenities proximity, and strategic listing approaches in enhancing property values and fostering sustainable urban development.
+
+I utilized Hedonic Pricing Model, a Regression analysis techniques commonly use in property evaluation  to analyze the comprehensive dataset comprising property characteristics (e.g., property type, size, features), listing status (sale vs. rent), proximity to amenities (e.g.,nearness to electric scooters, bikes), and micromobility infrastructure variables in Inner London. Statistical significance was determined based on p-values, with a conventional threshold of 0.05.
+
+Certain property types such as Country houses, Mews houses, and Maisonettes exhibited statistically significant impacts on property values compared to the reference category, suggesting distinct market preferences. it is worthy to note that Properties listed for sale significantly positively influenced property values compared to those listed for rent, emphasizing the importance of strategic listing strategies. however, Variables representing distance to electric scooters and bikes showed negative coefficients, indicating that closer access to these amenities positively influenced property values.
+
+further more, the study evaluates the performance of a property valuation model to know how well the variable explained the variations in the dependent i.e. how well does the predictors explained the dependent variable using key metrics such as residual standard error, R-squared values, F-statistic, root mean squared error (RMSE), and mean absolute error (MAE). The model showcases a high level of explanatory power and accuracy in predicting property values.Assessing the effectiveness of a property valuation model through various performance metrics, shedding light on its predictive capabilities and reliability.
+
+The RSE of 0.5998 on 126,331 degrees of freedom indicates the average deviation of observed values from the model's predicted values. the Lower RSE values suggest a better fit of the model to the data. this umplies that the lower the RSE the better the model while the high values of 0.9635 for both multiple R-squared and adjusted R-squared indicate that the model explains approximately 96.35% of the variance in the dependent variable (property values),indicating strong explanatory power.
+
+F-statistic of 9.815e+04 on 34 and 126,331 degrees of freedom, with a p-value < 2.2e-16, indicates that the overall regression model is statistically significant. This suggests that at least one independent variable in the model significantly contributes to predicting property values.
+
+in conclusion,The high R-squared values, significant F-statistic, and low RMSE and MAE values collectively indicate that the property valuation model demonstrates strong predictive accuracy and reliability. It effectively captures variations in property values based on the specified independent variables. Real estate professionals and urban planners can rely on this model to make informed decisions regarding property valuation, investment strategies, and urban development planning.
+
+
+
+
+
+
